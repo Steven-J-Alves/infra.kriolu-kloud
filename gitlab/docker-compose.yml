@@ -1,0 +1,49 @@
+services:
+  gitlab:
+    image: gitlab/gitlab-ce:latest
+    container_name: gitlab
+    restart: always
+    hostname: git.kriolu-kloud.cv
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'https://git.kriolu-kloud.cv'
+        gitlab_rails['gitlab_shell_ssh_port'] = 2222
+        gitlab_rails['time_zone'] = 'Atlantic/Cape_Verde'
+        gitlab_rails['gitlab_email_from'] = 'gitlab@kriolu-kloud.cv'
+        gitlab_rails['gitlab_email_display_name'] = 'KrioluKloud Git'
+
+        letsencrypt['enable'] = true
+        letsencrypt['contact_emails'] = ['stevenalves512@gmail.com']
+        letsencrypt['auto_renew'] = true
+        letsencrypt['auto_renew_hour'] = 3
+        letsencrypt['auto_renew_day_of_month'] = "*/7"
+        nginx['redirect_http_to_https'] = true
+
+        puma['worker_processes'] = 2
+        puma['min_threads'] = 1
+        puma['max_threads'] = 4
+        sidekiq['max_concurrency'] = 10
+        postgresql['shared_buffers'] = "256MB"
+        postgresql['max_connections'] = 100
+        prometheus_monitoring['enable'] = false
+        gitlab_rails['registry_enabled'] = false
+        grafana['enable'] = false
+        alertmanager['enable'] = false
+
+        gitlab_rails['backup_keep_time'] = 604800
+        gitlab_rails['backup_path'] = "/var/opt/gitlab/backups"
+    ports:
+      - '80:80'
+      - '443:443'
+      - '2222:22'
+    volumes:
+      - ./data/config:/etc/gitlab
+      - ./data/logs:/var/log/gitlab
+      - ./data/data:/var/opt/gitlab
+    shm_size: '256m'
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost/-/health"]
+      interval: 60s
+      timeout: 30s
+      retries: 5
+      start_period: 600s
