@@ -1,8 +1,9 @@
 stages:
-  - maintenance
+  - backup
+  - snapshot
 
 contabo-snapshot-rotate:
-  stage: maintenance
+  stage: snapshot
   tags:
     - vps
     - shell
@@ -15,7 +16,7 @@ contabo-snapshot-rotate:
   # Max data loss: 23h. Change KEEP in script if plan allows more snapshots.
 
 restic-backup:
-  stage: maintenance
+  stage: backup
   tags:
     - vps
     - shell
