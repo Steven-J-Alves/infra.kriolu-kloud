@@ -10,3 +10,5 @@ contabo-snapshot-rotate:
     - bash contabo/snapshot-rotate.sh
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
+  # Schedule: daily 04:00 UTC (03:00 Cape Verde). Keeps 2 snapshots (Contabo limit).
+  # Max data loss: 23h. Change KEEP in script if plan allows more snapshots.
