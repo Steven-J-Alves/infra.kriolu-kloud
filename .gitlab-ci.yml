@@ -1,0 +1,12 @@
+stages:
+  - maintenance
+
+contabo-snapshot-rotate:
+  stage: maintenance
+  tags:
+    - vps
+    - shell
+  script:
+    - bash contabo/snapshot-rotate.sh
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
