@@ -10,5 +10,19 @@ contabo-snapshot-rotate:
     - bash contabo/snapshot-rotate.sh
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: on_success
   # Schedule: daily 04:00 UTC (03:00 Cape Verde). Keeps 2 snapshots (Contabo limit).
   # Max data loss: 23h. Change KEEP in script if plan allows more snapshots.
+
+restic-backup:
+  stage: maintenance
+  tags:
+    - vps
+    - shell
+  script:
+    - bash restic/backup.sh
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: on_success
+  # Schedule: daily 02:00 UTC (01:00 Cape Verde). Retention: 7 daily + 4 weekly.
+  # Covers: GitLab repos, Mailcow data, /home/claw/companies
