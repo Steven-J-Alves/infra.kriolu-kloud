@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Backup diário da VPS para S3 via Restic.
 # Corre via GitLab CI (schedule diário às 02:00 UTC).
-# Credenciais em /home/claw/.config/restic/env (não versionado).
+# Credenciais injectadas pelo GitLab CI a partir das variáveis do grupo kriolu-kloud:
+#   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION,
+#   RESTIC_REPOSITORY, RESTIC_PASSWORD
 set -euo pipefail
-
-source /home/claw/.config/restic/env
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
@@ -13,7 +13,8 @@ log "A criar backup interno do GitLab..."
 docker exec gitlab gitlab-backup create STRATEGY=copy SKIP=registry 2>&1 | tail -5
 GITLAB_BACKUP_DIR="/home/claw/companies/kriolu-kloud.cv/infra.kriolu-kloud/gitlab/data/data/backups"
 
-# sudo limpa env vars — passar explicitamente
+# O wrapper /usr/local/bin/restic-backup corre como root e exporta as variáveis
+# de ambiente recebidas do GitLab CI para o processo restic.
 RESTIC_CMD="sudo /usr/local/bin/restic-backup"
 
 # --- Backup Restic (sudo para aceder a ficheiros root/docker) ---
