@@ -3,8 +3,10 @@
 # Run as user with sudo. Idempotent — pode correr várias vezes.
 set -euo pipefail
 
-DOMAIN="git.kriolu-kloud.cv"
-SSH_GIT_PORT="2222"
+DOMAIN="gitlab.kriolu-kloud.cv"
+SSH_GIT_PORT="22"
+VPS_SSH_PORT="52222"
+TRAEFIK_NETWORK="traefik-public"
 COMPOSE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 c_red()   { printf "\033[31m%s\033[0m\n" "$*"; }
@@ -47,20 +49,38 @@ step_check_resources() {
 }
 
 step_check_ports() {
-  c_blue "==> Verificar portas 80/443/${SSH_GIT_PORT}..."
-  local busy=0
-  for port in 80 443 "${SSH_GIT_PORT}"; do
-    if ${SUDO} ss -tlnp 2>/dev/null | awk '{print $4}' | grep -E "(^|:)${port}$" >/dev/null; then
-      c_red "Porta ${port} ocupada:"
-      ${SUDO} ss -tlnp | grep -E "(^|:)${port}\b" || true
-      busy=1
+  c_blue "==> Verificar porta ${SSH_GIT_PORT} (git SSH)..."
+  # 80/443 são do Traefik — não verificamos.
+  if ${SUDO} ss -tlnp 2>/dev/null | awk '{print $4}' | grep -E "(^|:)${SSH_GIT_PORT}$" >/dev/null; then
+    c_red "Porta ${SSH_GIT_PORT} ocupada:"
+    ${SUDO} ss -tlnp | grep -E "(^|:)${SSH_GIT_PORT}\b" || true
+    if [ "${SSH_GIT_PORT}" = "22" ] && ${SUDO} ss -tlnp 2>/dev/null | grep -E "(^|:)22\b" | grep -q sshd; then
+      c_red "A porta 22 está ocupada pelo sshd do host."
+      c_yellow "Tens de mover o sshd do host para a porta ${VPS_SSH_PORT} ANTES de correr este script."
+      c_yellow "Vê a secção 'Mover o sshd do host' em GITLAB.md."
+    else
+      c_red "Liberta a porta ${SSH_GIT_PORT} antes de prosseguir."
     fi
-  done
-  if [ $busy -ne 0 ]; then
-    c_red "Liberta as portas ocupadas antes de prosseguir."
     exit 1
   fi
-  c_green "OK — portas livres."
+  c_green "OK — porta ${SSH_GIT_PORT} livre."
+}
+
+step_check_traefik() {
+  c_blue "==> Verificar Traefik..."
+  if ! ${SUDO} docker network inspect "${TRAEFIK_NETWORK}" >/dev/null 2>&1; then
+    c_red "Rede Docker '${TRAEFIK_NETWORK}' não existe."
+    c_yellow "Arranca a stack Traefik primeiro (~/traefik), ou cria a rede com:"
+    echo "  docker network create ${TRAEFIK_NETWORK}"
+    exit 1
+  fi
+  if ! ${SUDO} docker ps --format '{{.Names}}' | grep -q '^traefik$'; then
+    c_yellow "AVISO: container 'traefik' não está a correr."
+    c_yellow "GitLab arranca à mesma, mas não responderá em https://${DOMAIN} até o Traefik estar de pé."
+    read -r -p "Continuar? [y/N] " ans
+    [[ "$ans" =~ ^[Yy]$ ]] || exit 1
+  fi
+  c_green "OK — Traefik detectado."
 }
 
 step_check_dns() {
@@ -73,11 +93,11 @@ step_check_dns() {
   echo "IP público desta VPS: ${ip_public:-<desconhecido>}"
 
   if [ -z "$ip_resolved" ]; then
-    c_red "Domínio não resolve. Confirma o registo DNS A antes de continuar (Let's Encrypt vai falhar)."
+    c_red "Domínio não resolve. Confirma o registo DNS A antes de continuar (Traefik vai falhar a emitir cert)."
     read -r -p "Continuar mesmo assim? [y/N] " ans
     [[ "$ans" =~ ^[Yy]$ ]] || exit 1
   elif [ -n "$ip_public" ] && [ "$ip_resolved" != "$ip_public" ]; then
-    c_yellow "DNS aponta para ${ip_resolved} mas o IP público é ${ip_public}. Let's Encrypt pode falhar."
+    c_yellow "DNS aponta para ${ip_resolved} mas o IP público é ${ip_public}. Traefik pode falhar a emitir cert."
     read -r -p "Continuar mesmo assim? [y/N] " ans
     [[ "$ans" =~ ^[Yy]$ ]] || exit 1
   else
@@ -139,6 +159,7 @@ main() {
   step_check_ports
   step_check_dns
   step_install_docker
+  step_check_traefik
   step_prepare_dirs
   step_start
   step_show_root_password
