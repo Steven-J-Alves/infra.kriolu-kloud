@@ -14,7 +14,7 @@ log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOGFILE"; }
 
 # --- Listar snapshots ordenados por data (mais antigo primeiro) ---
 SNAPS=$(cntb get snapshots "$INSTANCE_ID" -o json | \
-  jq -r 'sort_by(.createdDate) | .[].snapshotId')
+  python3 -c "import sys,json; snaps=sorted(json.load(sys.stdin), key=lambda x: x['createdDate']); [print(s['snapshotId']) for s in snaps]")
 
 COUNT=$(echo "$SNAPS" | grep -c .)
 log "Snapshots existentes: $COUNT (limite: $KEEP)"
