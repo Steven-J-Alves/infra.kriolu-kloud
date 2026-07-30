@@ -6,6 +6,8 @@
 
 set -euo pipefail
 
+export HOME=/home/claw  # cntb procura ~/.cntb.yaml; HOME pode não estar definido em CI
+
 INSTANCE_ID="203171298"
 KEEP=2
 LOGFILE="$(dirname "$0")/snapshot-rotate.log"
